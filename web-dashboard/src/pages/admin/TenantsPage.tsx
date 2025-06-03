@@ -1,192 +1,172 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
+  Container,
+  Typography,
   Button,
   Card,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Grid,
+  CardContent,
+  Chip,
   IconButton,
+  Menu,
+  MenuItem,
+  TextField,
   InputAdornment,
-  Paper,
+  Grid,
+  useTheme,
+  Avatar,
+  Tooltip,
+  Badge,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tabs,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
-  Typography,
-  Chip,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
+  Paper,
 } from '@mui/material';
 import {
   Add as AddIcon,
+  MoreVert as MoreVertIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon,
+  Sort as SortIcon,
+  Email as EmailIcon,
+  Phone as PhoneIcon,
+  Home as HomeIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Search as SearchIcon,
-  FilterList as FilterIcon,
+  Visibility as ViewIcon,
+  Assignment as AssignmentIcon,
+  Payment as PaymentIcon,
 } from '@mui/icons-material';
-import { BaseLayout } from '../../components/layouts/BaseLayout';
-import { useSnackbar } from 'notistack';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
+import { Tenant } from '../../services/api';
 
-interface Tenant {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  propertyId: string;
-  unitNumber: string;
-  leaseStart: string;
-  leaseEnd: string;
+// Extend the Tenant interface to include status
+interface TenantWithStatus extends Tenant {
   status: 'active' | 'inactive' | 'pending';
 }
 
-interface Property {
-  id: string;
-  name: string;
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
 }
 
-export const TenantsPage: React.FC = () => {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`tenant-tabpanel-${index}`}
+      aria-labelledby={`tenant-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+function a11yProps(index: number) {
+  return {
+    id: `tenant-tab-${index}`,
+    'aria-controls': `tenant-tabpanel-${index}`,
+  };
+}
+
+const TenantsPage: React.FC = () => {
+  const theme = useTheme();
+  const navigate = useNavigate();
+  const [tenants, setTenants] = useState<TenantWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [propertyFilter, setPropertyFilter] = useState<string>('all');
-  const { enqueueSnackbar } = useSnackbar();
-
-  const [formData, setFormData] = useState<Omit<Tenant, 'id'>>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    propertyId: '',
-    unitNumber: '',
-    leaseStart: '',
-    leaseEnd: '',
-    status: 'pending',
-  });
-
-  useEffect(() => {
-    fetchTenants();
-    fetchProperties();
-  }, []);
+  const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
+  const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedFilters, setSelectedFilters] = useState<{
+    status?: string;
+  }>({});
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<TenantWithStatus | null>(null);
+  const [viewMode, setViewMode] = useState(0);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const fetchTenants = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/tenants');
-      setTenants(response.data);
-    } catch (error) {
-      enqueueSnackbar('Failed to fetch tenants', { variant: 'error' });
+      const response = await api.getTenants();
+      // Add status to each tenant
+      const tenantsWithStatus = response.map(tenant => ({
+        ...tenant,
+        status: 'active' as const // Default status, you might want to get this from the API
+      }));
+      setTenants(tenantsWithStatus);
+      setError(null);
+    } catch (err) {
+      setError('Failed to fetch tenants. Please try again later.');
+      console.error('Error fetching tenants:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchProperties = async () => {
-    try {
-      const response = await api.get('/properties');
-      setProperties(response.data);
-    } catch (error) {
-      enqueueSnackbar('Failed to fetch properties', { variant: 'error' });
-    }
+  useEffect(() => {
+    fetchTenants();
+  }, []);
+
+  const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
+    setFilterAnchorEl(event.currentTarget);
   };
 
-  const handleOpenDialog = (tenant?: Tenant) => {
-    if (tenant) {
-      setEditingTenant(tenant);
-      setFormData({
-        firstName: tenant.firstName,
-        lastName: tenant.lastName,
-        email: tenant.email,
-        phone: tenant.phone,
-        propertyId: tenant.propertyId,
-        unitNumber: tenant.unitNumber,
-        leaseStart: tenant.leaseStart,
-        leaseEnd: tenant.leaseEnd,
-        status: tenant.status,
-      });
-    } else {
-      setEditingTenant(null);
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        propertyId: '',
-        unitNumber: '',
-        leaseStart: '',
-        leaseEnd: '',
-        status: 'pending',
-      });
-    }
+  const handleSortClick = (event: React.MouseEvent<HTMLElement>) => {
+    setSortAnchorEl(event.currentTarget);
+  };
+
+  const handleFilterClose = () => {
+    setFilterAnchorEl(null);
+  };
+
+  const handleSortClose = () => {
+    setSortAnchorEl(null);
+  };
+
+  const handleFilterSelect = (filter: { status?: string }) => {
+    setSelectedFilters(filter);
+    handleFilterClose();
+  };
+
+  const handleTenantClick = (tenant: TenantWithStatus) => {
+    setSelectedTenant(tenant);
     setOpenDialog(true);
   };
 
-  const handleCloseDialog = () => {
+  const handleDialogClose = () => {
     setOpenDialog(false);
-    setEditingTenant(null);
+    setSelectedTenant(null);
   };
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }> | 
-    (Event & { target: { value: string; name: string } })
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name as string]: value,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingTenant) {
-        await api.put(`/tenants/${editingTenant.id}`, formData);
-        enqueueSnackbar('Tenant updated successfully', { variant: 'success' });
-      } else {
-        await api.post('/tenants', formData);
-        enqueueSnackbar('Tenant created successfully', { variant: 'success' });
-      }
-      handleCloseDialog();
-      fetchTenants();
-    } catch (error) {
-      enqueueSnackbar('Failed to save tenant', { variant: 'error' });
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this tenant?')) {
-      try {
-        await api.delete(`/tenants/${id}`);
-        enqueueSnackbar('Tenant deleted successfully', { variant: 'success' });
-        fetchTenants();
-      } catch (error) {
-        enqueueSnackbar('Failed to delete tenant', { variant: 'error' });
-      }
-    }
+  const handleViewModeChange = (event: React.SyntheticEvent, newValue: number) => {
+    setViewMode(newValue);
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'active':
         return 'success';
-      case 'inactive':
-        return 'error';
       case 'pending':
         return 'warning';
+      case 'inactive':
+        return 'error';
       default:
         return 'default';
     }
@@ -196,263 +176,366 @@ export const TenantsPage: React.FC = () => {
     const matchesSearch = 
       tenant.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tenant.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tenant.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tenant.unitNumber.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || tenant.status === statusFilter;
-    const matchesProperty = propertyFilter === 'all' || tenant.propertyId === propertyFilter;
-
-    return matchesSearch && matchesStatus && matchesProperty;
+      tenant.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = !selectedFilters.status || tenant.status === selectedFilters.status;
+    return matchesSearch && matchesStatus;
   });
 
   return (
-    <BaseLayout title="Tenants">
-      <Box sx={{ mb: 4 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4} component="div">
-            <TextField
-              fullWidth
-              placeholder="Search tenants..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3} component="div">
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="all">All</MenuItem>
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="inactive">Inactive</MenuItem>
-                <MenuItem value="pending">Pending</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={3} component="div">
-            <FormControl fullWidth>
-              <InputLabel>Property</InputLabel>
-              <Select
-                value={propertyFilter}
-                label="Property"
-                onChange={(e) => setPropertyFilter(e.target.value)}
-              >
-                <MenuItem value="all">All Properties</MenuItem>
-                {properties.map((property) => (
-                  <MenuItem key={property.id} value={property.id}>
-                    {property.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2} component="div">
-            <Button
-              fullWidth
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenDialog()}
-            >
-              Add Tenant
-            </Button>
-          </Grid>
-        </Grid>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
+          Tenants
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => navigate('/admin/tenants/new')}
+          sx={{
+            borderRadius: 2,
+            textTransform: 'none',
+            px: 3,
+          }}
+        >
+          Add Tenant
+        </Button>
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Contact</TableCell>
-              <TableCell>Property</TableCell>
-              <TableCell>Unit</TableCell>
-              <TableCell>Lease Period</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredTenants.map((tenant) => (
-              <TableRow key={tenant.id}>
-                <TableCell>
-                  {tenant.firstName} {tenant.lastName}
-                </TableCell>
-                <TableCell>
-                  {tenant.email}
-                  <br />
-                  {tenant.phone}
-                </TableCell>
-                <TableCell>
-                  {properties.find((p) => p.id === tenant.propertyId)?.name || 'N/A'}
-                </TableCell>
-                <TableCell>{tenant.unitNumber}</TableCell>
-                <TableCell>
-                  {new Date(tenant.leaseStart).toLocaleDateString()} -{' '}
-                  {new Date(tenant.leaseEnd).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
+      <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder="Search tenants..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ maxWidth: 400 }}
+        />
+        <Button
+          variant="outlined"
+          startIcon={<FilterListIcon />}
+          onClick={handleFilterClick}
+          sx={{ borderRadius: 2, textTransform: 'none' }}
+        >
+          Filter
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<SortIcon />}
+          onClick={handleSortClick}
+          sx={{ borderRadius: 2, textTransform: 'none' }}
+        >
+          Sort
+        </Button>
+      </Box>
+
+      <Menu
+        anchorEl={filterAnchorEl}
+        open={Boolean(filterAnchorEl)}
+        onClose={handleFilterClose}
+      >
+        <MenuItem onClick={() => handleFilterSelect({ status: 'active' })}>
+          Active
+        </MenuItem>
+        <MenuItem onClick={() => handleFilterSelect({ status: 'pending' })}>
+          Pending
+        </MenuItem>
+        <MenuItem onClick={() => handleFilterSelect({ status: 'inactive' })}>
+          Inactive
+        </MenuItem>
+      </Menu>
+
+      <Menu
+        anchorEl={sortAnchorEl}
+        open={Boolean(sortAnchorEl)}
+        onClose={handleSortClose}
+      >
+        <MenuItem onClick={handleSortClose}>Name (A-Z)</MenuItem>
+        <MenuItem onClick={handleSortClose}>Name (Z-A)</MenuItem>
+        <MenuItem onClick={handleSortClose}>Move-in Date (Newest)</MenuItem>
+        <MenuItem onClick={handleSortClose}>Move-in Date (Oldest)</MenuItem>
+      </Menu>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={viewMode} onChange={handleViewModeChange} aria-label="view mode tabs">
+          <Tab label="Grid View" {...a11yProps(0)} />
+          <Tab label="List View" {...a11yProps(1)} />
+        </Tabs>
+      </Box>
+
+      <TabPanel value={viewMode} index={0}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          {filteredTenants.map((tenant) => (
+            <Box
+              key={tenant.id}
+              sx={{
+                width: {
+                  xs: '100%',
+                  sm: 'calc(50% - 12px)',
+                  md: 'calc(33.33% - 16px)',
+                },
+              }}
+            >
+              <Card
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: theme.shadows[4],
+                  },
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Avatar
+                        sx={{
+                          width: 56,
+                          height: 56,
+                          bgcolor: theme.palette.primary.main,
+                          fontSize: '1.5rem',
+                        }}
+                      >
+                        {tenant.firstName.charAt(0)}
+                        {tenant.lastName.charAt(0)}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="h6" component="h2">
+                          {tenant.firstName} {tenant.lastName}
+                        </Typography>
+                        <Chip
+                          label={tenant.status}
+                          color={getStatusColor(tenant.status)}
+                          size="small"
+                        />
+                      </Box>
+                    </Box>
+                    <IconButton size="small">
+                      <MoreVertIcon />
+                    </IconButton>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <EmailIcon color="action" fontSize="small" />
+                      <Typography variant="body2" color="text.secondary">
+                        {tenant.email}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <PhoneIcon color="action" fontSize="small" />
+                      <Typography variant="body2" color="text.secondary">
+                        {tenant.phone}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <HomeIcon color="action" fontSize="small" />
+                      <Typography variant="body2" color="text.secondary">
+                        Unit {tenant.unitNumber}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Lease: {new Date(tenant.leaseStart).toLocaleDateString()} - {new Date(tenant.leaseEnd).toLocaleDateString()}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Tooltip title="View Details">
+                        <IconButton size="small" onClick={() => handleTenantClick(tenant)}>
+                          <ViewIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Edit Tenant">
+                        <IconButton size="small" onClick={() => navigate(`/admin/tenants/${tenant.id}/edit`)}>
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Tenant">
+                        <IconButton size="small">
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+          ))}
+        </Box>
+      </TabPanel>
+
+      <TabPanel value={viewMode} index={1}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {filteredTenants.map((tenant) => (
+            <Card key={tenant.id} sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Avatar sx={{ bgcolor: 'primary.main' }}>
+                  {tenant.firstName[0]}
+                </Avatar>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle1">
+                    {tenant.firstName} {tenant.lastName}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {tenant.email}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Chip
                     label={tenant.status}
-                    color={getStatusColor(tenant.status)}
+                    color={tenant.status === 'active' ? 'success' : 'default'}
                     size="small"
                   />
-                </TableCell>
-                <TableCell>
                   <IconButton
-                    color="primary"
-                    onClick={() => handleOpenDialog(tenant)}
+                    size="small"
+                    onClick={(e) => {
+                      setAnchorEl(e.currentTarget);
+                      setSelectedTenant(tenant);
+                    }}
                   >
-                    <EditIcon />
+                    <MoreVertIcon />
                   </IconButton>
-                  <IconButton
-                    color="error"
-                    onClick={() => handleDelete(tenant.id)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                </Box>
+              </Box>
+            </Card>
+          ))}
+        </Box>
+      </TabPanel>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <form onSubmit={handleSubmit}>
-          <DialogTitle>
-            {editingTenant ? 'Edit Tenant' : 'Add Tenant'}
-          </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6} component="div">
-                <TextField
-                  name="firstName"
-                  label="First Name"
-                  fullWidth
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  required
+      <Dialog
+        open={openDialog}
+        onClose={handleDialogClose}
+        maxWidth="md"
+        fullWidth
+      >
+        {selectedTenant && (
+          <>
+            <DialogTitle>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6">
+                  {selectedTenant.firstName} {selectedTenant.lastName}
+                </Typography>
+                <Chip
+                  label={selectedTenant.status}
+                  color={getStatusColor(selectedTenant.status)}
+                  size="small"
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} component="div">
-                <TextField
-                  name="lastName"
-                  label="Last Name"
-                  fullWidth
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} component="div">
-                <TextField
-                  name="email"
-                  label="Email"
-                  type="email"
-                  fullWidth
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} component="div">
-                <TextField
-                  name="phone"
-                  label="Phone"
-                  fullWidth
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} component="div">
-                <FormControl fullWidth required>
-                  <InputLabel>Property</InputLabel>
-                  <Select
-                    name="propertyId"
-                    value={formData.propertyId}
-                    label="Property"
-                    onChange={handleInputChange}
-                  >
-                    {properties.map((property) => (
-                      <MenuItem key={property.id} value={property.id}>
-                        {property.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} component="div">
-                <TextField
-                  name="unitNumber"
-                  label="Unit Number"
-                  fullWidth
-                  value={formData.unitNumber}
-                  onChange={handleInputChange}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} component="div">
-                <TextField
-                  name="leaseStart"
-                  label="Lease Start"
-                  type="date"
-                  fullWidth
-                  value={formData.leaseStart}
-                  onChange={handleInputChange}
-                  required
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} component="div">
-                <TextField
-                  name="leaseEnd"
-                  label="Lease End"
-                  type="date"
-                  fullWidth
-                  value={formData.leaseEnd}
-                  onChange={handleInputChange}
-                  required
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} component="div">
-                <FormControl fullWidth required>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    name="status"
-                    value={formData.status}
-                    label="Status"
-                    onChange={handleInputChange}
-                  >
-                    <MenuItem value="active">Active</MenuItem>
-                    <MenuItem value="inactive">Inactive</MenuItem>
-                    <MenuItem value="pending">Pending</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
-            <Button type="submit" variant="contained">
-              {editingTenant ? 'Update' : 'Create'}
-            </Button>
-          </DialogActions>
-        </form>
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+                <Box sx={{ width: { xs: '100%', md: '33.33%' } }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <Avatar
+                      sx={{
+                        width: 120,
+                        height: 120,
+                        bgcolor: theme.palette.primary.main,
+                        fontSize: '3rem',
+                      }}
+                    >
+                      {selectedTenant.firstName.charAt(0)}
+                      {selectedTenant.lastName.charAt(0)}
+                    </Avatar>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h6">
+                        {selectedTenant.firstName} {selectedTenant.lastName}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Tenant ID: {selectedTenant.id}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+                <Box sx={{ width: { xs: '100%', md: '66.67%' } }}>
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Contact Information
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                      <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)' } }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Email
+                        </Typography>
+                        <Typography variant="body1">
+                          {selectedTenant.email}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)' } }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Phone
+                        </Typography>
+                        <Typography variant="body1">
+                          {selectedTenant.phone}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Lease Information
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                      <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)' } }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Property
+                        </Typography>
+                        <Typography variant="body1">
+                          {selectedTenant.propertyId}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)' } }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Unit Number
+                        </Typography>
+                        <Typography variant="body1">
+                          {selectedTenant.unitNumber}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)' } }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Lease Start
+                        </Typography>
+                        <Typography variant="body1">
+                          {new Date(selectedTenant.leaseStart).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)' } }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Lease End
+                        </Typography>
+                        <Typography variant="body1">
+                          {new Date(selectedTenant.leaseEnd).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleDialogClose}>Close</Button>
+              <Button
+                variant="contained"
+                onClick={() => navigate(`/admin/tenants/${selectedTenant.id}/edit`)}
+              >
+                Edit Tenant
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
-    </BaseLayout>
+    </Container>
   );
 };
 

@@ -1,555 +1,525 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
+  Container,
+  Typography,
   Button,
   Card,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  IconButton,
-  InputAdornment,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
+  CardContent,
   Chip,
+  IconButton,
+  Menu,
   MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
+  TextField,
+  InputAdornment,
+  Tabs,
+  Tab,
+  useTheme,
   Avatar,
-  Stack,
-  TablePagination,
-  TableSortLabel,
   Tooltip,
+  Badge,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
+  MoreVert as MoreVertIcon,
   Search as SearchIcon,
-  FilterList as FilterIcon,
-  Comment as CommentIcon,
+  FilterList as FilterListIcon,
+  Sort as SortIcon,
+  Assignment as AssignmentIcon,
+  CheckCircle as CheckCircleIcon,
+  Schedule as ScheduleIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
-import { BaseLayout } from '../../components/layouts/BaseLayout';
-import { useSnackbar } from 'notistack';
-import { api, useApi, Ticket } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../services/api';
+import { Ticket, TicketStatus, TicketPriority, TicketCategory } from '../../services/api';
 
-type Order = 'asc' | 'desc';
-
-interface HeadCell {
-  id: keyof Ticket;
-  label: string;
-  sortable: boolean;
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
 }
 
-const headCells: HeadCell[] = [
-  { id: 'title', label: 'Title', sortable: true },
-  { id: 'status', label: 'Status', sortable: true },
-  { id: 'priority', label: 'Priority', sortable: true },
-  { id: 'property', label: 'Property', sortable: true },
-  { id: 'tenant', label: 'Tenant', sortable: true },
-  { id: 'createdAt', label: 'Created', sortable: true },
-  { id: 'updatedAt', label: 'Updated', sortable: true },
-];
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
 
-const statusColors = {
-  open: 'info',
-  in_progress: 'warning',
-  resolved: 'success',
-  closed: 'default',
-} as const;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`ticket-tabpanel-${index}`}
+      aria-labelledby={`ticket-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    </div>
+  );
+}
 
-const priorityColors = {
-  low: 'success',
-  medium: 'info',
-  high: 'warning',
-  urgent: 'error',
-} as const;
+function a11yProps(index: number) {
+  return {
+    id: `ticket-tab-${index}`,
+    'aria-controls': `ticket-tabpanel-${index}`,
+  };
+}
 
-export const TicketsPage: React.FC = () => {
+const TicketsPage: React.FC = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
-  const { handleApiCall } = useApi();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [tabValue, setTabValue] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [order, setOrder] = useState<Order>('desc');
-  const [orderBy, setOrderBy] = useState<keyof Ticket>('createdAt');
-  const { enqueueSnackbar } = useSnackbar();
+  const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
+  const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedFilters, setSelectedFilters] = useState<{
+    status?: TicketStatus;
+    priority?: TicketPriority;
+    category?: TicketCategory;
+  }>({});
 
-  const [formData, setFormData] = useState<Omit<Ticket, 'id' | 'createdAt' | 'updatedAt'>>({
-    title: '',
-    description: '',
-    status: 'open',
-    priority: 'medium',
-    category: '',
-    propertyId: '',
-    unitNumber: '',
-    tenantId: '',
-    assignedTo: '',
-  });
+  const fetchTickets = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getTickets();
+      setTickets(response.tickets);
+      setError(null);
+    } catch (err) {
+      setError('Failed to fetch tickets. Please try again later.');
+      console.error('Error fetching tickets:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchTickets();
   }, []);
 
-  const fetchTickets = async () => {
-    setLoading(true);
-    const result = await handleApiCall(
-      () => api.getTickets({
-        search: searchQuery,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
-      }),
-      'Tickets loaded successfully',
-      'Failed to load tickets'
-    );
-    if (result) {
-      setTickets(result);
-    }
-    setLoading(false);
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
   };
 
-  const handleOpenDialog = (ticket?: Ticket) => {
-    if (ticket) {
-      setEditingTicket(ticket);
-      setFormData({
-        title: ticket.title,
-        description: ticket.description,
-        status: ticket.status,
-        priority: ticket.priority,
-        category: ticket.category,
-        propertyId: ticket.propertyId,
-        unitNumber: ticket.unitNumber,
-        tenantId: ticket.tenantId,
-        assignedTo: ticket.assignedTo || '',
-      });
-    } else {
-      setEditingTicket(null);
-      setFormData({
-        title: '',
-        description: '',
-        status: 'open',
-        priority: 'medium',
-        category: '',
-        propertyId: '',
-        unitNumber: '',
-        tenantId: '',
-        assignedTo: '',
-      });
-    }
-    setOpenDialog(true);
+  const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
+    setFilterAnchorEl(event.currentTarget);
   };
 
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setEditingTicket(null);
+  const handleSortClick = (event: React.MouseEvent<HTMLElement>) => {
+    setSortAnchorEl(event.currentTarget);
   };
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name as string]: value,
-    }));
+  const handleFilterClose = () => {
+    setFilterAnchorEl(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingTicket) {
-        await api.put(`/tickets/${editingTicket.id}`, formData);
-        enqueueSnackbar('Ticket updated successfully', { variant: 'success' });
-      } else {
-        await api.post('/tickets', formData);
-        enqueueSnackbar('Ticket created successfully', { variant: 'success' });
-      }
-      handleCloseDialog();
-      fetchTickets();
-    } catch (error) {
-      enqueueSnackbar('Failed to save ticket', { variant: 'error' });
+  const handleSortClose = () => {
+    setSortAnchorEl(null);
+  };
+
+  const handleFilterSelect = (filter: { status?: TicketStatus; priority?: TicketPriority; category?: TicketCategory }) => {
+    setSelectedFilters(filter);
+    handleFilterClose();
+  };
+
+  const getStatusColor = (status: TicketStatus) => {
+    switch (status) {
+      case TicketStatus.PENDING:
+        return 'warning';
+      case TicketStatus.ASSIGNED:
+        return 'info';
+      case TicketStatus.IN_PROGRESS:
+        return 'primary';
+      case TicketStatus.WAITING_FOR_PARTS:
+        return 'secondary';
+      case TicketStatus.COMPLETED:
+        return 'success';
+      case TicketStatus.CANCELLED:
+        return 'error';
+      default:
+        return 'default';
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this ticket?')) {
-      try {
-        await api.delete(`/tickets/${id}`);
-        enqueueSnackbar('Ticket deleted successfully', { variant: 'success' });
-        fetchTickets();
-      } catch (error) {
-        enqueueSnackbar('Failed to delete ticket', { variant: 'error' });
-      }
+  const getPriorityColor = (priority: TicketPriority) => {
+    switch (priority) {
+      case TicketPriority.LOW:
+        return 'success';
+      case TicketPriority.NORMAL:
+        return 'info';
+      case TicketPriority.URGENT:
+        return 'warning';
+      case TicketPriority.EMERGENCY:
+        return 'error';
+      default:
+        return 'default';
     }
   };
 
-  const handleRequestSort = (property: keyof Ticket) => {
-    const isAsc = orderBy === property && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(property);
-  };
-
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(event.target.value);
-  };
-
-  const handleStatusFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setStatusFilter(event.target.value);
-  };
-
-  const handlePriorityFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setPriorityFilter(event.target.value);
-  };
-
-  const handleCreateTicket = () => {
-    navigate('/admin/tickets/new');
-  };
-
-  const handleEditTicket = (id: string) => {
-    navigate(`/admin/tickets/${id}`);
-  };
-
-  const handleDeleteTicket = async (id: string) => {
-    const confirmed = window.confirm('Are you sure you want to delete this ticket?');
-    if (confirmed) {
-      const success = await handleApiCall(
-        () => api.deleteTicket(id),
-        'Ticket deleted successfully',
-        'Failed to delete ticket'
-      );
-      if (success) {
-        fetchTickets();
-      }
-    }
-  };
-
-  const filteredTickets = tickets
-    .filter((ticket) => {
-      const matchesSearch = ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ticket.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
-      const matchesPriority = priorityFilter === 'all' || ticket.priority === priorityFilter;
-      return matchesSearch && matchesStatus && matchesPriority;
-    })
-    .sort((a, b) => {
-      const aValue = a[orderBy];
-      const bValue = b[orderBy];
-      if (order === 'asc') {
-        return String(aValue) > String(bValue) ? 1 : -1;
-      }
-      return String(aValue) < String(bValue) ? 1 : -1;
-    });
+  const filteredTickets = tickets.filter((ticket) => {
+    const matchesSearch = ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticket.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = !selectedFilters.status || ticket.status === selectedFilters.status;
+    const matchesPriority = !selectedFilters.priority || ticket.priority === selectedFilters.priority;
+    const matchesCategory = !selectedFilters.category || ticket.category === selectedFilters.category;
+    return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
+  });
 
   return (
-    <BaseLayout title="Tickets">
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h4" component="h1">
-              Tickets
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreateTicket}
-            >
-              Create Ticket
-            </Button>
-          </Box>
-
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <TextField
-                sx={{ flex: 1, minWidth: 200 }}
-                placeholder="Search tickets..."
-                value={searchQuery}
-                onChange={handleSearch}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <TextField
-                select
-                sx={{ minWidth: 200 }}
-                label="Status"
-                value={statusFilter}
-                onChange={handleStatusFilterChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <FilterIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              >
-                <MenuItem value="all">All Statuses</MenuItem>
-                <MenuItem value="open">Open</MenuItem>
-                <MenuItem value="in_progress">In Progress</MenuItem>
-                <MenuItem value="resolved">Resolved</MenuItem>
-                <MenuItem value="closed">Closed</MenuItem>
-              </TextField>
-              <TextField
-                select
-                sx={{ minWidth: 200 }}
-                label="Priority"
-                value={priorityFilter}
-                onChange={handlePriorityFilterChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <FilterIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              >
-                <MenuItem value="all">All Priorities</MenuItem>
-                <MenuItem value="low">Low</MenuItem>
-                <MenuItem value="medium">Medium</MenuItem>
-                <MenuItem value="high">High</MenuItem>
-                <MenuItem value="urgent">Urgent</MenuItem>
-              </TextField>
-            </Box>
-          </Paper>
-
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  {headCells.map((headCell) => (
-                    <TableCell
-                      key={headCell.id}
-                      sortDirection={orderBy === headCell.id ? order : false}
-                    >
-                      {headCell.sortable ? (
-                        <TableSortLabel
-                          active={orderBy === headCell.id}
-                          direction={orderBy === headCell.id ? order : 'asc'}
-                          onClick={() => handleRequestSort(headCell.id)}
-                        >
-                          {headCell.label}
-                        </TableSortLabel>
-                      ) : (
-                        headCell.label
-                      )}
-                    </TableCell>
-                  ))}
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredTickets
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((ticket) => (
-                    <TableRow key={ticket.id}>
-                      <TableCell>{ticket.title}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={ticket.status.replace('_', ' ')}
-                          color={statusColors[ticket.status]}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={ticket.priority}
-                          color={priorityColors[ticket.priority]}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>{ticket.property.name}</TableCell>
-                      <TableCell>{ticket.tenant.name}</TableCell>
-                      <TableCell>
-                        {new Date(ticket.createdAt).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(ticket.updatedAt).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Edit">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditTicket(ticket.id)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteTicket(ticket.id)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={filteredTickets.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          </TableContainer>
-        </Box>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
+          Maintenance Tickets
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => navigate('/admin/tickets/new')}
+          sx={{
+            borderRadius: 2,
+            textTransform: 'none',
+            px: 3,
+          }}
+        >
+          New Ticket
+        </Button>
       </Box>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <form onSubmit={handleSubmit}>
-          <DialogTitle>
-            {editingTicket ? 'Edit Ticket' : 'Create Ticket'}
-          </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  name="title"
-                  label="Title"
-                  fullWidth
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  name="description"
-                  label="Description"
-                  fullWidth
-                  multiline
-                  rows={4}
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    name="status"
-                    value={formData.status}
-                    label="Status"
-                    onChange={handleInputChange}
-                  >
-                    <MenuItem value="open">Open</MenuItem>
-                    <MenuItem value="in_progress">In Progress</MenuItem>
-                    <MenuItem value="resolved">Resolved</MenuItem>
-                    <MenuItem value="closed">Closed</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>Priority</InputLabel>
-                  <Select
-                    name="priority"
-                    value={formData.priority}
-                    label="Priority"
-                    onChange={handleInputChange}
-                  >
-                    <MenuItem value="urgent">Urgent</MenuItem>
-                    <MenuItem value="high">High</MenuItem>
-                    <MenuItem value="medium">Medium</MenuItem>
-                    <MenuItem value="low">Low</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>Property</InputLabel>
-                  <Select
-                    name="propertyId"
-                    value={formData.propertyId}
-                    label="Property"
-                    onChange={handleInputChange}
-                  >
-                    {/* Add property options here */}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  name="unitNumber"
-                  label="Unit Number"
-                  fullWidth
-                  value={formData.unitNumber}
-                  onChange={handleInputChange}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>Tenant</InputLabel>
-                  <Select
-                    name="tenantId"
-                    value={formData.tenantId}
-                    label="Tenant"
-                    onChange={handleInputChange}
-                  >
-                    {/* Add tenant options here */}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Assign To</InputLabel>
-                  <Select
-                    name="assignedTo"
-                    value={formData.assignedTo}
-                    label="Assign To"
-                    onChange={handleInputChange}
-                  >
-                    <MenuItem value="">Unassigned</MenuItem>
-                    {/* Add staff options here */}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
-            <Button type="submit" variant="contained">
-              {editingTicket ? 'Update' : 'Create'}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-    </BaseLayout>
+      <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder="Search tickets..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ maxWidth: 400 }}
+        />
+        <Button
+          variant="outlined"
+          startIcon={<FilterListIcon />}
+          onClick={handleFilterClick}
+          sx={{ borderRadius: 2, textTransform: 'none' }}
+        >
+          Filter
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<SortIcon />}
+          onClick={handleSortClick}
+          sx={{ borderRadius: 2, textTransform: 'none' }}
+        >
+          Sort
+        </Button>
+      </Box>
+
+      <Menu
+        anchorEl={filterAnchorEl}
+        open={Boolean(filterAnchorEl)}
+        onClose={handleFilterClose}
+      >
+        <MenuItem onClick={() => handleFilterSelect({ status: TicketStatus.PENDING })}>
+          Pending
+        </MenuItem>
+        <MenuItem onClick={() => handleFilterSelect({ status: TicketStatus.ASSIGNED })}>
+          Assigned
+        </MenuItem>
+        <MenuItem onClick={() => handleFilterSelect({ status: TicketStatus.IN_PROGRESS })}>
+          In Progress
+        </MenuItem>
+        <MenuItem onClick={() => handleFilterSelect({ status: TicketStatus.COMPLETED })}>
+          Completed
+        </MenuItem>
+      </Menu>
+
+      <Menu
+        anchorEl={sortAnchorEl}
+        open={Boolean(sortAnchorEl)}
+        onClose={handleSortClose}
+      >
+        <MenuItem onClick={handleSortClose}>Date Created (Newest)</MenuItem>
+        <MenuItem onClick={handleSortClose}>Date Created (Oldest)</MenuItem>
+        <MenuItem onClick={handleSortClose}>Priority (High to Low)</MenuItem>
+        <MenuItem onClick={handleSortClose}>Priority (Low to High)</MenuItem>
+      </Menu>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={tabValue} onChange={handleTabChange} aria-label="ticket tabs">
+          <Tab label="All" {...a11yProps(0)} />
+          <Tab label="Pending" {...a11yProps(1)} />
+          <Tab label="In Progress" {...a11yProps(2)} />
+          <Tab label="Completed" {...a11yProps(3)} />
+        </Tabs>
+      </Box>
+
+      <TabPanel value={tabValue} index={0}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          {filteredTickets.map((ticket) => (
+            <Card
+              key={ticket.id}
+              sx={{
+                width: '100%',
+                maxWidth: 400,
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: theme.shadows[4],
+                },
+              }}
+            >
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Box>
+                    <Typography variant="h6" component="h2" gutterBottom>
+                      {ticket.title}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                      <Chip
+                        label={ticket.status}
+                        color={getStatusColor(ticket.status)}
+                        size="small"
+                      />
+                      <Chip
+                        label={ticket.priority}
+                        color={getPriorityColor(ticket.priority)}
+                        size="small"
+                      />
+                    </Box>
+                  </Box>
+                  <IconButton size="small">
+                    <MoreVertIcon />
+                  </IconButton>
+                </Box>
+
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {ticket.description}
+                </Typography>
+
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Avatar
+                      sx={{ width: 32, height: 32, bgcolor: theme.palette.primary.main }}
+                    >
+                      {ticket.tenant.firstName.charAt(0)}
+                    </Avatar>
+                    <Typography variant="body2">
+                      {ticket.tenant.firstName} {ticket.tenant.lastName}
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {new Date(ticket.createdAt).toLocaleDateString()}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={1}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          {filteredTickets
+            .filter((ticket) => ticket.status === TicketStatus.PENDING)
+            .map((ticket) => (
+              <Card
+                key={ticket.id}
+                sx={{
+                  width: '100%',
+                  maxWidth: 400,
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: theme.shadows[4],
+                  },
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box>
+                      <Typography variant="h6" component="h2" gutterBottom>
+                        {ticket.title}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                        <Chip
+                          label={ticket.status}
+                          color={getStatusColor(ticket.status)}
+                          size="small"
+                        />
+                        <Chip
+                          label={ticket.priority}
+                          color={getPriorityColor(ticket.priority)}
+                          size="small"
+                        />
+                      </Box>
+                    </Box>
+                    <IconButton size="small">
+                      <MoreVertIcon />
+                    </IconButton>
+                  </Box>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {ticket.description}
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Avatar
+                        sx={{ width: 32, height: 32, bgcolor: theme.palette.primary.main }}
+                      >
+                        {ticket.tenant.firstName.charAt(0)}
+                      </Avatar>
+                      <Typography variant="body2">
+                        {ticket.tenant.firstName} {ticket.tenant.lastName}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(ticket.createdAt).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+        </Box>
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={2}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          {filteredTickets
+            .filter((ticket) => ticket.status === TicketStatus.IN_PROGRESS)
+            .map((ticket) => (
+              <Card
+                key={ticket.id}
+                sx={{
+                  width: '100%',
+                  maxWidth: 400,
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: theme.shadows[4],
+                  },
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box>
+                      <Typography variant="h6" component="h2" gutterBottom>
+                        {ticket.title}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                        <Chip
+                          label={ticket.status}
+                          color={getStatusColor(ticket.status)}
+                          size="small"
+                        />
+                        <Chip
+                          label={ticket.priority}
+                          color={getPriorityColor(ticket.priority)}
+                          size="small"
+                        />
+                      </Box>
+                    </Box>
+                    <IconButton size="small">
+                      <MoreVertIcon />
+                    </IconButton>
+                  </Box>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {ticket.description}
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Avatar
+                        sx={{ width: 32, height: 32, bgcolor: theme.palette.primary.main }}
+                      >
+                        {ticket.tenant.firstName.charAt(0)}
+                      </Avatar>
+                      <Typography variant="body2">
+                        {ticket.tenant.firstName} {ticket.tenant.lastName}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(ticket.createdAt).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+        </Box>
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={3}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          {filteredTickets
+            .filter((ticket) => ticket.status === TicketStatus.COMPLETED)
+            .map((ticket) => (
+              <Card
+                key={ticket.id}
+                sx={{
+                  width: '100%',
+                  maxWidth: 400,
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: theme.shadows[4],
+                  },
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box>
+                      <Typography variant="h6" component="h2" gutterBottom>
+                        {ticket.title}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                        <Chip
+                          label={ticket.status}
+                          color={getStatusColor(ticket.status)}
+                          size="small"
+                        />
+                        <Chip
+                          label={ticket.priority}
+                          color={getPriorityColor(ticket.priority)}
+                          size="small"
+                        />
+                      </Box>
+                    </Box>
+                    <IconButton size="small">
+                      <MoreVertIcon />
+                    </IconButton>
+                  </Box>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {ticket.description}
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Avatar
+                        sx={{ width: 32, height: 32, bgcolor: theme.palette.primary.main }}
+                      >
+                        {ticket.tenant.firstName.charAt(0)}
+                      </Avatar>
+                      <Typography variant="body2">
+                        {ticket.tenant.firstName} {ticket.tenant.lastName}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(ticket.createdAt).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+        </Box>
+      </TabPanel>
+    </Container>
   );
 };
 

@@ -35,47 +35,100 @@ export interface Tenant {
   avatar?: string;
 }
 
+export enum TicketCategory {
+  PLUMBING = "plumbing",
+  ELECTRICAL = "electrical",
+  HVAC = "hvac",
+  APPLIANCE = "appliance",
+  STRUCTURAL = "structural",
+  PEST = "pest",
+  OTHER = "other",
+}
+
+export enum TicketPriority {
+  LOW = "low",
+  NORMAL = "normal",
+  URGENT = "urgent",
+  EMERGENCY = "emergency",
+}
+
+export enum TicketStatus {
+  PENDING = "pending",
+  ASSIGNED = "assigned",
+  IN_PROGRESS = "in_progress",
+  WAITING_FOR_PARTS = "waiting_for_parts",
+  COMPLETED = "completed",
+  CANCELLED = "cancelled",
+}
+
 export interface Ticket {
   id: string;
-  title: string;
-  description: string;
-  status: 'open' | 'in_progress' | 'resolved' | 'closed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  category: string;
+  tenant: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
   property: {
     id: string;
     name: string;
   };
-  tenant: {
+  unit: {
     id: string;
-    name: string;
+    unitNumber: string;
   };
-  assignedTo?: string;
+  category: TicketCategory;
+  title: string;
+  description: string;
+  priority: TicketPriority;
+  status: TicketStatus;
+  assignedTo?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  scheduledDate?: string;
+  completedDate?: string;
+  images?: string[];
+  notes?: {
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
+    };
+    text: string;
+    createdAt: string;
+  }[];
+  accessInstructions?: string;
+  materialsUsed?: {
+    item: string;
+    quantity: number;
+  }[];
+  timeSpent?: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface TicketComment {
-  id: string;
-  ticketId: string;
-  userId: string;
-  content: string;
-  createdAt: string;
+export interface TicketNote {
   user: {
     id: string;
     firstName: string;
     lastName: string;
-    avatar?: string;
   };
+  text: string;
+  createdAt: string;
 }
 
 export interface GetTicketsParams {
   search?: string;
-  status?: string;
-  priority?: string;
+  status?: TicketStatus;
+  priority?: TicketPriority;
+  category?: TicketCategory;
   propertyId?: string;
   tenantId?: string;
   assignedTo?: string;
+  limit?: number;
+  page?: number;
 }
 
 export interface AuthResponse {
@@ -87,6 +140,37 @@ export interface ApiError {
   message: string;
   code?: string;
   status?: number;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  type: 'general' | 'maintenance' | 'emergency' | 'event';
+  priority: 'low' | 'medium' | 'high';
+  startDate: string;
+  endDate: string;
+  properties: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RevenueData {
+  name: string;
+  revenue: number;
+}
+
+export interface OccupancyData {
+  name: string;
+  value: number;
+}
+
+export interface MaintenanceData {
+  category: string;
+  total: number;
+  completed: number;
+  pending: number;
+  avgResolutionTime: string;
 }
 
 // Create axios instance with default config
@@ -190,9 +274,9 @@ class ApiService {
   }
 
   // Ticket methods
-  async getTickets(params?: GetTicketsParams): Promise<Ticket[]> {
+  async getTickets(params?: GetTicketsParams): Promise<{ tickets: Ticket[]; total: number }> {
     try {
-      const response = await axios.get<Ticket[]>(`${this.baseURL}/tickets`, {
+      const response = await axios.get<{ tickets: Ticket[]; total: number }>(`${this.baseURL}/tickets`, {
         headers: this.getHeaders(),
         params,
       });
@@ -213,7 +297,14 @@ class ApiService {
     }
   }
 
-  async createTicket(ticketData: Omit<Ticket, 'id' | 'createdAt' | 'updatedAt'>): Promise<Ticket> {
+  async createTicket(ticketData: {
+    category: TicketCategory;
+    title: string;
+    description: string;
+    priority: TicketPriority;
+    images?: string[];
+    accessInstructions?: string;
+  }): Promise<Ticket> {
     try {
       const response = await axios.post<Ticket>(`${this.baseURL}/tickets`, ticketData, {
         headers: this.getHeaders(),
@@ -224,7 +315,18 @@ class ApiService {
     }
   }
 
-  async updateTicket(id: string, ticketData: Partial<Ticket>): Promise<Ticket> {
+  async updateTicket(id: string, ticketData: Partial<{
+    category: TicketCategory;
+    title: string;
+    description: string;
+    priority: TicketPriority;
+    status: TicketStatus;
+    assignedTo?: string;
+    scheduledDate?: string;
+    completedDate?: string;
+    images?: string[];
+    accessInstructions?: string;
+  }>): Promise<Ticket> {
     try {
       const response = await axios.put<Ticket>(`${this.baseURL}/tickets/${id}`, ticketData, {
         headers: this.getHeaders(),
@@ -245,9 +347,9 @@ class ApiService {
     }
   }
 
-  async getTicketComments(ticketId: string): Promise<TicketComment[]> {
+  async addTicketNote(id: string, note: { text: string }): Promise<TicketNote> {
     try {
-      const response = await axios.get<TicketComment[]>(`${this.baseURL}/tickets/${ticketId}/comments`, {
+      const response = await axios.post<TicketNote>(`${this.baseURL}/tickets/${id}/notes`, note, {
         headers: this.getHeaders(),
       });
       return response.data;
@@ -256,15 +358,61 @@ class ApiService {
     }
   }
 
-  async addTicketComment(ticketId: string, content: string): Promise<TicketComment> {
+  async addTicketImage(id: string, image: File): Promise<{ imageUrl: string }> {
     try {
-      const response = await axios.post<TicketComment>(
-        `${this.baseURL}/tickets/${ticketId}/comments`,
-        { content },
-        {
-          headers: this.getHeaders(),
-        }
-      );
+      const formData = new FormData();
+      formData.append('image', image);
+      
+      const response = await axios.post<{ imageUrl: string }>(`${this.baseURL}/tickets/${id}/images`, formData, {
+        headers: {
+          ...this.getHeaders(),
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async addTicketMaterials(id: string, materials: { item: string; quantity: number }[]): Promise<Ticket> {
+    try {
+      const response = await axios.post<Ticket>(`${this.baseURL}/tickets/${id}/materials`, { materials }, {
+        headers: this.getHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getTicketsByTenant(tenantId: string): Promise<Ticket[]> {
+    try {
+      const response = await axios.get<Ticket[]>(`${this.baseURL}/tickets/tenant/${tenantId}`, {
+        headers: this.getHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getTicketsByProperty(propertyId: string): Promise<Ticket[]> {
+    try {
+      const response = await axios.get<Ticket[]>(`${this.baseURL}/tickets/property/${propertyId}`, {
+        headers: this.getHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getTicketsByStaff(staffId: string): Promise<Ticket[]> {
+    try {
+      const response = await axios.get<Ticket[]>(`${this.baseURL}/tickets/staff/${staffId}`, {
+        headers: this.getHeaders(),
+      });
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -327,6 +475,87 @@ class ApiService {
     try {
       const response = await axios.get('/staff', {
         headers: this.getHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  // Announcement methods
+  async getAnnouncements(): Promise<Announcement[]> {
+    try {
+      const response = await axios.get<Announcement[]>(`${this.baseURL}/announcements`, {
+        headers: this.getHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async createAnnouncement(announcementData: Omit<Announcement, 'id' | 'createdAt' | 'updatedAt'>): Promise<Announcement> {
+    try {
+      const response = await axios.post<Announcement>(`${this.baseURL}/announcements`, announcementData, {
+        headers: this.getHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async updateAnnouncement(id: string, announcementData: Partial<Announcement>): Promise<Announcement> {
+    try {
+      const response = await axios.put<Announcement>(`${this.baseURL}/announcements/${id}`, announcementData, {
+        headers: this.getHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async deleteAnnouncement(id: string): Promise<void> {
+    try {
+      await axios.delete(`${this.baseURL}/announcements/${id}`, {
+        headers: this.getHeaders(),
+      });
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  // Report methods
+  async getRevenueReport(timeRange: string): Promise<RevenueData[]> {
+    try {
+      const response = await axios.get<RevenueData[]>(`${this.baseURL}/reports/revenue`, {
+        headers: this.getHeaders(),
+        params: { timeRange },
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getOccupancyReport(timeRange: string): Promise<OccupancyData[]> {
+    try {
+      const response = await axios.get<OccupancyData[]>(`${this.baseURL}/reports/occupancy`, {
+        headers: this.getHeaders(),
+        params: { timeRange },
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getMaintenanceReport(timeRange: string): Promise<MaintenanceData[]> {
+    try {
+      const response = await axios.get<MaintenanceData[]>(`${this.baseURL}/reports/maintenance`, {
+        headers: this.getHeaders(),
+        params: { timeRange },
       });
       return response.data;
     } catch (error) {

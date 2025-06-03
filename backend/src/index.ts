@@ -11,6 +11,7 @@ import notificationRoutes from './routes/notification.routes';
 import documentRoutes from './routes/document.routes';
 import eventRoutes from './routes/event.routes';
 import authRoutes from './routes/auth.routes';
+import reportRoutes from './routes/report.routes';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
