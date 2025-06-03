@@ -1,0 +1,153 @@
+@import 'variables';
+@import 'mixins';
+
+// Reset and base styles
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+  line-height: 1.5;
+  color: $secondary-color;
+  background-color: #f8fafc;
+}
+
+// Typography
+h1, h2, h3, h4, h5, h6 {
+  @include heading('base');
+  color: $secondary-color;
+  margin-bottom: $spacing-md;
+}
+
+p {
+  margin-bottom: $spacing-md;
+}
+
+a {
+  color: $primary-color;
+  text-decoration: none;
+  @include transition(color);
+  
+  &:hover {
+    color: darken($primary-color, 10%);
+  }
+}
+
+// Layout
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 $spacing-md;
+  
+  @include respond-to(md) {
+    padding: 0 $spacing-lg;
+  }
+}
+
+// Grid system
+.row {
+  @include flex(row, flex-start, stretch, wrap);
+  margin: 0 -$spacing-md;
+}
+
+.col {
+  flex: 1;
+  padding: 0 $spacing-md;
+}
+
+// Common components
+.btn {
+  @include button;
+  
+  &--secondary {
+    @include button('secondary');
+  }
+}
+
+.card {
+  @include card;
+}
+
+// Utility classes
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+
+.mt-1 { margin-top: $spacing-xs; }
+.mt-2 { margin-top: $spacing-sm; }
+.mt-3 { margin-top: $spacing-md; }
+.mt-4 { margin-top: $spacing-lg; }
+.mt-5 { margin-top: $spacing-xl; }
+
+.mb-1 { margin-bottom: $spacing-xs; }
+.mb-2 { margin-bottom: $spacing-sm; }
+.mb-3 { margin-bottom: $spacing-md; }
+.mb-4 { margin-bottom: $spacing-lg; }
+.mb-5 { margin-bottom: $spacing-xl; }
+
+// Responsive utilities
+.hide-sm {
+  @include respond-to(sm) {
+    display: none;
+  }
+}
+
+.show-sm {
+  display: none;
+  @include respond-to(sm) {
+    display: block;
+  }
+}
+
+// Animations
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+// Form elements
+input, textarea, select {
+  width: 100%;
+  padding: $spacing-sm;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  font-size: $font-size-base;
+  @include transition(border-color);
+  
+  &:focus {
+    outline: none;
+    border-color: $primary-color;
+  }
+}
+
+// Tables
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: $spacing-md;
+  
+  th, td {
+    padding: $spacing-sm;
+    border-bottom: 1px solid $border-color;
+    text-align: left;
+  }
+  
+  th {
+    font-weight: 600;
+    background-color: #f8fafc;
+  }
+} 

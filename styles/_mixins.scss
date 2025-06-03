@@ -1,0 +1,107 @@
+@import 'variables';
+
+// Flexbox
+@mixin flex($direction: row, $justify: flex-start, $align: stretch, $wrap: nowrap) {
+  display: flex;
+  flex-direction: $direction;
+  justify-content: $justify;
+  align-items: $align;
+  flex-wrap: $wrap;
+}
+
+// Grid
+@mixin grid($columns: 1, $gap: $spacing-md) {
+  display: grid;
+  grid-template-columns: repeat($columns, 1fr);
+  gap: $gap;
+}
+
+// Responsive breakpoints
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == sm {
+    @media (min-width: $breakpoint-sm) { @content; }
+  }
+  @else if $breakpoint == md {
+    @media (min-width: $breakpoint-md) { @content; }
+  }
+  @else if $breakpoint == lg {
+    @media (min-width: $breakpoint-lg) { @content; }
+  }
+  @else if $breakpoint == xl {
+    @media (min-width: $breakpoint-xl) { @content; }
+  }
+  @else if $breakpoint == 2xl {
+    @media (min-width: $breakpoint-2xl) { @content; }
+  }
+}
+
+// Typography
+@mixin heading($size: 'base') {
+  font-family: $font-family-base;
+  font-weight: 600;
+  line-height: 1.2;
+  
+  @if $size == 'sm' {
+    font-size: $font-size-lg;
+  } @else if $size == 'base' {
+    font-size: $font-size-xl;
+  } @else if $size == 'lg' {
+    font-size: 1.5rem;
+  } @else if $size == 'xl' {
+    font-size: 2rem;
+  }
+}
+
+// Buttons
+@mixin button($variant: 'primary') {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $border-radius;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+  
+  @if $variant == 'primary' {
+    background-color: $primary-color;
+    color: white;
+    &:hover {
+      background-color: darken($primary-color, 10%);
+    }
+  } @else if $variant == 'secondary' {
+    background-color: $secondary-color;
+    color: white;
+    &:hover {
+      background-color: darken($secondary-color, 10%);
+    }
+  }
+}
+
+// Cards
+@mixin card {
+  background-color: white;
+  border-radius: $border-radius;
+  box-shadow: $shadow-md;
+  padding: $spacing-md;
+}
+
+// Transitions
+@mixin transition($property: all, $duration: 0.2s, $timing: ease-in-out) {
+  transition: $property $duration $timing;
+}
+
+// Truncate text
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Hide scrollbar
+@mixin hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+} 
