@@ -12,6 +12,9 @@ import documentRoutes from './routes/document.routes';
 import eventRoutes from './routes/event.routes';
 import authRoutes from './routes/auth.routes';
 import reportRoutes from './routes/report.routes';
+import onboardingRoutes from './routes/onboarding.routes';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger';
 
 dotenv.config();
 
@@ -20,6 +23,9 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Swagger UI setup
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use('/api/users', userRoutes);
@@ -31,6 +37,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/onboarding', onboardingRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

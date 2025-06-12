@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
 import { AppDataSource } from '../data-source';
 import { Event, EventType, EventStatus } from '../models/Event';
-import { User, UserRole } from '../models/User';
+import { User } from '../models/User';
 import { Property } from '../models/Property';
 import { validate } from 'class-validator';
+import { FindOptionsWhere } from 'typeorm';
 
 export class EventController {
   static async create(req: Request, res: Response) {
@@ -75,15 +76,15 @@ export class EventController {
       const eventRepository = AppDataSource.getRepository(Event);
       const { propertyId, type, status } = req.query;
 
-      let whereClause: any = {};
+      const whereClause: FindOptionsWhere<Event> = {};
       if (propertyId) {
-        whereClause.property = { id: propertyId };
+        whereClause.property = { id: propertyId as string };
       }
       if (type) {
-        whereClause.type = type;
+        whereClause.type = type as EventType;
       }
       if (status) {
-        whereClause.status = status;
+        whereClause.status = status as EventStatus;
       }
 
       const events = await eventRepository.find({

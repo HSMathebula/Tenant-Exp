@@ -8,6 +8,10 @@ import { Payment } from './models/Payment';
 import { Document } from './models/Document';
 import { Event } from './models/Event';
 import { Notification } from './models/Notification';
+import { BuildingAssignment } from './models/BuildingAssignment';
+import { Package } from './models/Package';
+import { AmenityBooking } from './models/AmenityBooking';
+import { EventRegistration } from './models/EventRegistration';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -18,7 +22,21 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME || 'tenant_experience',
   synchronize: process.env.NODE_ENV !== 'production',
   logging: process.env.NODE_ENV !== 'production',
-  entities: [User, Unit, Property, Lease, MaintenanceRequest, Payment, Document, Event, Notification],
+  entities: [
+    User,
+    Unit,
+    Property,
+    Lease,
+    MaintenanceRequest,
+    Payment,
+    Document,
+    Event,
+    Notification,
+    BuildingAssignment,
+    Package,
+    AmenityBooking,
+    EventRegistration
+  ],
   migrations: ['src/migrations/*.ts'],
   subscribers: ['src/subscribers/*.ts']
 }); 

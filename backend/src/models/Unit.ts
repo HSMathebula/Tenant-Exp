@@ -1,9 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany } from 'typeorm';
-import { Property } from './Property';
+import { Building } from './Building';
 import { User } from './User';
 import { Lease } from './Lease';
 import { MaintenanceRequest } from './MaintenanceRequest';
 import { Payment } from './Payment';
+import { Document } from './Document';
 
 export enum UnitStatus {
   AVAILABLE = 'available',
@@ -71,8 +72,8 @@ export class Unit {
     };
   };
 
-  @ManyToOne(() => Property, property => property.units)
-  property: Property;
+  @ManyToOne(() => Building, building => building.units)
+  building: Building;
 
   @ManyToOne(() => User, { nullable: true })
   currentTenant: User | null;
@@ -85,6 +86,9 @@ export class Unit {
 
   @OneToMany(() => Payment, (payment: Payment) => payment.unit)
   payments: Payment[];
+
+  @OneToMany(() => Document, document => document.unit)
+  documents: Document[];
 
   @CreateDateColumn()
   createdAt: Date;

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      padding: 20px 0;
+      background-color: #f8f9fa;
+    }
+    .content {
+      padding: 20px 0;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #6f42c1;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px 0;
+      font-size: 12px;
+      color: #666;
+    }
+    .important {
+      background-color: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Lease Renewal Reminder</h1>
+    </div>
+    <div class="content">
+      <p>Hello {{firstName}},</p>
+      <p>Your current lease agreement is approaching its end date on {{leaseEndDate}}.</p>
+      <div class="important">
+        <p><strong>Important:</strong> To ensure a smooth transition, please review and renew your lease agreement before the end date.</p>
+      </div>
+      <p>We value you as a tenant and would be happy to continue our relationship. Please take a moment to review the renewal terms and make your decision.</p>
+      <p>
+        <a href="{{renewalUrl}}" class="button">Review Renewal Terms</a>
+      </p>
+      <p>If you have any questions about the renewal process or would like to discuss your options, please don't hesitate to contact our leasing team.</p>
+    </div>
+    <div class="footer">
+      <p>This email was sent to you because your lease is approaching its end date.</p>
+      <p>&copy; 2024 Tenant Experience. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html> 

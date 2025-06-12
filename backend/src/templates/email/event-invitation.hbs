@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      padding: 20px 0;
+      background-color: #f8f9fa;
+    }
+    .content {
+      padding: 20px 0;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #fd7e14;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px 0;
+      font-size: 12px;
+      color: #666;
+    }
+    .event-details {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .event-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #fd7e14;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Event Invitation</h1>
+    </div>
+    <div class="content">
+      <p>Hello {{firstName}},</p>
+      <p>You're invited to join us for an exciting community event!</p>
+      <div class="event-details">
+        <div class="event-title">{{eventTitle}}</div>
+        <p><strong>Date:</strong> {{eventDate}}</p>
+        <p><strong>Location:</strong> {{eventLocation}}</p>
+        <p><strong>Description:</strong></p>
+        <p>{{eventDescription}}</p>
+      </div>
+      <p>
+        <a href="{{rsvpUrl}}" class="button">RSVP Now</a>
+      </p>
+      <p>We look forward to seeing you there! If you have any questions about the event, please contact our community manager.</p>
+    </div>
+    <div class="footer">
+      <p>This email was sent to you because you're invited to a community event.</p>
+      <p>&copy; 2024 Tenant Experience. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html> 

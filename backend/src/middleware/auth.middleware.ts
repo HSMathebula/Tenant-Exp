@@ -1,18 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppDataSource } from '../data-source';
-import { User } from '../models/User';
+import { User, UserRole } from '../models/User';
 
-interface JwtPayload {
-  userId: string;
-  role: string;
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: JwtPayload;
-    }
+// Extend Express Request interface using module augmentation
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: {
+      userId: string;
+      role: UserRole;
+    };
   }
 }
 
@@ -28,15 +25,18 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET || 'your_jwt_secret_here'
-    ) as JwtPayload;
-    req.user = decoded;
+    ) as { userId: string; role: string };
+    req.user = {
+      userId: decoded.userId,
+      role: decoded.role as UserRole
+    };
     next();
   } catch (error) {
     return res.status(403).json({ message: 'Invalid or expired token' });
   }
 };
 
-export const requireRole = (roles: string[]) => {
+export const requireRole = (roles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Authentication required' });

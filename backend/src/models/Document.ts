@@ -1,38 +1,41 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from './User';
 import { Property } from './Property';
-import { Lease } from './Lease';
 import { Unit } from './Unit';
-import { MaintenanceRequest } from './MaintenanceRequest';
+import { OnboardingStep } from './OnboardingStep';
 
 export enum DocumentType {
-  LEASE = 'lease',
-  IDENTIFICATION = 'identification',
-  INVOICE = 'invoice',
-  RECEIPT = 'receipt',
-  MAINTENANCE = 'maintenance',
-  POLICY = 'policy',
-  CERTIFICATE = 'certificate',
+  ID_PROOF = 'id_proof',
+  INCOME_PROOF = 'income_proof',
+  ADDRESS_PROOF = 'address_proof',
+  LEASE_AGREEMENT = 'lease_agreement',
+  INSURANCE = 'insurance',
   OTHER = 'other'
 }
 
 export enum DocumentStatus {
-  ACTIVE = 'active',
-  ARCHIVED = 'archived',
-  EXPIRED = 'expired',
-  PENDING = 'pending'
+  PENDING = 'pending',
+  VERIFIED = 'verified',
+  REJECTED = 'rejected',
+  ACTIVE = 'active'
 }
 
-@Entity('documents')
+@Entity()
 export class Document {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
-  name: string;
+  userId: string;
+
+  @ManyToOne(() => User)
+  user: User;
 
   @Column()
-  title: string;
+  stepId: string;
+
+  @ManyToOne(() => OnboardingStep)
+  step: OnboardingStep;
 
   @Column({
     type: 'enum',
@@ -41,46 +44,38 @@ export class Document {
   type: DocumentType;
 
   @Column()
-  fileUrl: string;
+  url: string;
+
+  @Column()
+  title: string;
 
   @Column({ nullable: true })
   description: string;
 
-  @Column({ type: 'jsonb', nullable: true })
-  metadata: {
-    size: number;
-    mimeType: string;
-    uploadedBy: string;
-    version: string;
-  };
+  @Column('jsonb', { nullable: true })
+  metadata: Record<string, string | number | boolean | null>;
 
   @Column({
     type: 'enum',
     enum: DocumentStatus,
-    default: DocumentStatus.ACTIVE
+    default: DocumentStatus.PENDING
   })
   status: DocumentStatus;
 
-  @Column({ default: false })
-  isVerified: boolean;
-
-  @Column({ type: 'date', nullable: true })
-  expiryDate: Date;
-
-  @ManyToOne(() => User, { nullable: true })
-  uploadedBy: User;
-
-  @ManyToOne(() => Property, { nullable: true })
+  @ManyToOne(() => Property)
   property: Property;
 
   @ManyToOne(() => Unit, { nullable: true })
   unit: Unit | null;
 
-  @ManyToOne(() => Lease, { nullable: true })
-  lease: Lease;
+  @ManyToOne(() => User)
+  uploadedBy: User;
 
-  @ManyToOne(() => MaintenanceRequest, { nullable: true })
-  maintenanceRequest: MaintenanceRequest;
+  @Column({ nullable: true })
+  verifiedAt: Date;
+
+  @Column({ nullable: true })
+  rejectedReason: string;
 
   @CreateDateColumn()
   createdAt: Date;

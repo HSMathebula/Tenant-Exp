@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { AppDataSource } from '../data-source';
-import { Payment, PaymentType, PaymentStatus, PaymentMethod } from '../models/Payment';
-import { User, UserRole } from '../models/User';
+import { Payment, PaymentStatus } from '../models/Payment';
+import { UserRole } from '../models/User';
 import { Unit } from '../models/Unit';
 import { Lease } from '../models/Lease';
 import { validate } from 'class-validator';
@@ -149,7 +149,7 @@ export class PaymentController {
 
       const payment = await paymentRepository.findOne({
         where: { id },
-        relations: ['tenant', 'unit', 'unit.property', 'unit.property.manager']
+        relations: ['tenant', 'unit', 'unit.building', 'unit.building.manager']
       });
 
       if (!payment) {
@@ -161,7 +161,7 @@ export class PaymentController {
         return res.status(403).json({ message: 'Only the tenant can update this payment' });
       }
 
-      if (userRole === UserRole.PROPERTY_MANAGER && payment.unit.property.manager.id !== userId) {
+      if (userRole === UserRole.PROPERTY_MANAGER && payment.unit.building.manager.id !== userId) {
         return res.status(403).json({ message: 'Only the property manager can update this payment' });
       }
 
@@ -214,7 +214,7 @@ export class PaymentController {
 
       const payment = await paymentRepository.findOne({
         where: { id },
-        relations: ['unit', 'unit.property', 'unit.property.manager']
+        relations: ['unit', 'unit.building', 'unit.building.manager']
       });
 
       if (!payment) {
@@ -222,7 +222,7 @@ export class PaymentController {
       }
 
       // Verify user is the property manager
-      if (payment.unit.property.manager.id !== userId) {
+      if (payment.unit.building.manager.id !== userId) {
         return res.status(403).json({ message: 'Only the property manager can add late fees' });
       }
 
@@ -265,9 +265,13 @@ export class PaymentController {
   }
 
   static async getMyPayments(req: Request, res: Response) {
+    if (!req.user?.userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
     const paymentRepository = AppDataSource.getRepository(Payment);
     const payments = await paymentRepository.find({
-      where: { tenant: { id: req.user!.userId } },
+      where: { tenant: { id: req.user.userId } },
       order: { createdAt: 'DESC' }
     });
 
@@ -330,7 +334,7 @@ export class PaymentController {
 
       const payment = await paymentRepository.findOne({
         where: { id },
-        relations: ['tenant', 'unit', 'unit.property', 'unit.property.manager']
+        relations: ['tenant', 'unit', 'unit.building', 'unit.building.manager']
       });
 
       if (!payment) {
@@ -342,7 +346,7 @@ export class PaymentController {
         return res.status(403).json({ message: 'Only the tenant can update this payment' });
       }
 
-      if (userRole === UserRole.PROPERTY_MANAGER && payment.unit.property.manager.id !== userId) {
+      if (userRole === UserRole.PROPERTY_MANAGER && payment.unit.building.manager.id !== userId) {
         return res.status(403).json({ message: 'Only the property manager can update this payment' });
       }
 
@@ -368,7 +372,7 @@ export class PaymentController {
 
       const payment = await paymentRepository.findOne({
         where: { id },
-        relations: ['tenant', 'unit', 'unit.property', 'unit.property.manager']
+        relations: ['tenant', 'unit', 'unit.building', 'unit.building.manager']
       });
 
       if (!payment) {
@@ -380,7 +384,7 @@ export class PaymentController {
         return res.status(403).json({ message: 'Only the tenant can delete this payment' });
       }
 
-      if (userRole === UserRole.PROPERTY_MANAGER && payment.unit.property.manager.id !== userId) {
+      if (userRole === UserRole.PROPERTY_MANAGER && payment.unit.building.manager.id !== userId) {
         return res.status(403).json({ message: 'Only the property manager can delete this payment' });
       }
 

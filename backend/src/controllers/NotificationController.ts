@@ -3,6 +3,8 @@ import { AppDataSource } from '../data-source';
 import { Notification, NotificationType, NotificationStatus, NotificationPriority } from '../models/Notification';
 import { User, UserRole } from '../models/User';
 import { validate } from 'class-validator';
+import { AppError } from '../utils/appError';
+import { NotificationService } from '../services/NotificationService';
 
 export class NotificationController {
   static async create(req: Request, res: Response) {
@@ -105,33 +107,12 @@ export class NotificationController {
 
   static async markAsRead(req: Request, res: Response) {
     try {
-      const notificationRepository = AppDataSource.getRepository(Notification);
       const { id } = req.params;
-      const userId = req.user?.userId;
-
-      const notification = await notificationRepository.findOne({
-        where: { id },
-        relations: ['user']
-      });
-
+      const notification = await NotificationService.markAsRead(id);
       if (!notification) {
         return res.status(404).json({ message: 'Notification not found' });
       }
-
-      // Verify user has access
-      if (notification.user.id !== userId) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
-
-      // Mark as read
-      notification.status = NotificationStatus.READ;
-      notification.readAt = new Date();
-      await notificationRepository.save(notification);
-
-      return res.json({
-        message: 'Notification marked as read',
-        notification
-      });
+      return res.json({ notification });
     } catch (error) {
       return res.status(500).json({ message: 'Error marking notification as read', error });
     }
@@ -272,6 +253,43 @@ export class NotificationController {
       return res.json({ notification });
     } catch (error) {
       return res.status(500).json({ message: 'Error updating notification', error });
+    }
+  }
+
+  static async getNotificationPreferences(req: Request, res: Response) {
+    try {
+      if (!req.user) throw new AppError(401, 'User not authenticated');
+      const userId = req.user.userId;
+
+      // Mock data for notification preferences
+      const preferences = {
+        email: true,
+        sms: false,
+        push: true,
+      };
+      res.json(preferences);
+    } catch (error) {
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    }
+  }
+
+  static async getMyNotifications(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+      const { status } = req.query;
+      const notifications = await NotificationService.getUserNotifications(
+        userId,
+        status as string
+      );
+      return res.json({ notifications });
+    } catch (error) {
+      return res.status(500).json({ message: 'Error fetching notifications', error });
     }
   }
 } 

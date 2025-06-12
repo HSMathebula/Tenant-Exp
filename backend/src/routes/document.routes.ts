@@ -1,20 +1,17 @@
 import { Router } from 'express';
-import { DocumentController } from '../controllers/DocumentController';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { requireRole } from '../middleware/role.middleware';
-import { UserRole } from '../models/User';
+import { DocumentController } from '../controllers/document.controller';
+import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Public routes
-router.post('/upload', authMiddleware, DocumentController.upload);
+router.use(requireAuth);
 
-// Protected routes
-router.get('/', authMiddleware, DocumentController.getAll);
-router.get('/:id', authMiddleware, DocumentController.getById);
-router.delete('/:id', authMiddleware, DocumentController.delete);
-
-// Admin routes
-router.get('/admin/all', authMiddleware, requireRole([UserRole.ADMIN]), DocumentController.getAllDocuments);
+router.post('/upload-url', DocumentController.getUploadUrl);
+router.post('/:documentId/confirm', DocumentController.confirmUpload);
+router.get('/', DocumentController.getDocuments);
+router.get('/:documentId', DocumentController.getDocument);
+router.delete('/:documentId', DocumentController.deleteDocument);
+router.post('/:documentId/verify', DocumentController.verifyDocument);
+router.post('/calendar', DocumentController.integrateCalendar);
 
 export default router; 

@@ -27,4 +27,7 @@ router.delete('/:id', requireRole([UserRole.ADMIN]), UserController.delete);
 router.get('/tenants', requireRole([UserRole.PROPERTY_MANAGER]), UserController.getTenants);
 router.get('/staff', requireRole([UserRole.PROPERTY_MANAGER]), UserController.getStaff);
 
+router.post('/onboarding', UserController.submitOnboarding);
+router.get('/onboarding/status', UserController.getOnboardingStatus);
+
 export default router; 

@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, ManyToMany, JoinTable, OneToMany } from 'typeorm';
 import { User } from './User';
 import { Property } from './Property';
+import { EventRegistration } from './EventRegistration';
 
 export enum EventType {
   COMMUNITY = 'community',
@@ -95,6 +96,9 @@ export class Event {
   @ManyToMany(() => User)
   @JoinTable()
   attendees: User[];
+
+  @OneToMany(() => EventRegistration, registration => registration.event)
+  registrations: EventRegistration[];
 
   @CreateDateColumn()
   createdAt: Date;

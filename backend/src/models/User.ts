@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { IsEmail, IsString, IsEnum, IsOptional, IsBoolean, MinLength, IsObject, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Property } from './Property';
@@ -6,6 +6,12 @@ import { MaintenanceRequest } from './MaintenanceRequest';
 import { Payment } from './Payment';
 import { Notification } from './Notification';
 import { Lease } from './Lease';
+import { Package } from './Package';
+import { AmenityBooking } from './AmenityBooking';
+import { EventRegistration } from './EventRegistration';
+import { Document } from './Document';
+import { OnboardingStep } from './OnboardingStep';
+import { UserPreference } from './UserPreference';
 
 export enum UserRole {
   TENANT = 'tenant',
@@ -122,6 +128,18 @@ export class User {
   @Column({ nullable: true })
   profilePicture: string;
 
+  @IsString()
+  @IsOptional()
+  @Column({ nullable: true })
+  pushToken: string;
+
+  @Column({
+    type: 'enum',
+    enum: ['ios', 'android', 'web'],
+    nullable: true
+  })
+  deviceType: 'ios' | 'android' | 'web';
+
   @IsObject()
   @ValidateNested()
   @Type(() => Address)
@@ -151,6 +169,67 @@ export class User {
   @Column({ type: 'jsonb', nullable: true })
   preferences: UserPreferences;
 
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: {
+    onboardingSteps?: {
+      id: string;
+      title: string;
+      description: string;
+      isCompleted: boolean;
+      required: boolean;
+    }[];
+    onboardingStatus?: string;
+    personalInfo?: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      emergencyContact: {
+        name: string;
+        phone: string;
+        relationship: string;
+      };
+    };
+    propertyInfo?: {
+      propertyId: string;
+      unitNumber: string;
+      moveInDate: Date;
+      leaseStartDate: Date;
+      leaseEndDate: Date;
+    };
+    documents?: {
+      idVerification: string;
+      proofOfIncome: string;
+      leaseAgreement: string;
+      insuranceDocument: string;
+    };
+    preferences?: {
+      preferredContactMethod: string;
+      preferredLanguage: string;
+      notificationPreferences: {
+        maintenance: boolean;
+        announcements: boolean;
+        payments: boolean;
+        events: boolean;
+      };
+    };
+    amenities?: {
+      parking: boolean;
+      storage: boolean;
+      pets: boolean;
+      additionalServices: string[];
+    };
+  };
+
+  @OneToMany(() => Package, pkg => pkg.recipient)
+  packages: Package[];
+
+  @OneToMany(() => AmenityBooking, booking => booking.tenant)
+  amenityBookings: AmenityBooking[];
+
+  @OneToMany(() => EventRegistration, registration => registration.attendee)
+  eventRegistrations: EventRegistration[];
+
   @OneToMany(() => Property, property => property.manager)
   managedProperties: Property[];
 
@@ -165,6 +244,21 @@ export class User {
 
   @OneToMany(() => Lease, lease => lease.tenant)
   leases: Lease[];
+
+  @OneToMany(() => Document, document => document.user)
+  documents: Document[];
+
+  @Column({ default: false })
+  onboardingCompleted: boolean;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  onboardingCompletedAt: Date | null;
+
+  @OneToMany(() => OnboardingStep, step => step.user)
+  onboardingSteps: OnboardingStep[];
+
+  @OneToMany(() => UserPreference, preference => preference.user)
+  userPreferences: UserPreference[];
 
   @CreateDateColumn()
   createdAt: Date;

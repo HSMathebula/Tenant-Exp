@@ -4,6 +4,9 @@ import { User, UserRole } from '../models/User';
 import { hash, compare } from 'bcryptjs';
 import { sign, verify } from 'jsonwebtoken';
 import { validate } from 'class-validator';
+import { TenantOnboardingService } from '../services/tenantOnboarding.service';
+import { AppError } from '../utils/appError';
+import { plainToClass } from 'class-transformer';
 
 // Extend Express Request type
 declare global {
@@ -15,6 +18,38 @@ declare global {
       };
     }
   }
+}
+
+// Define a class for onboarding data validation
+class OnboardingDataDto {
+  personalInfo: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    emergencyContacts: { name: string; phone: string }[];
+  };
+  propertyInfo: {
+    building: string;
+    unit: string;
+    moveInDate: string;
+    leaseStartDate: string;
+    leaseEndDate: string;
+  };
+  documents: {
+    idVerification: string;
+    proofOfIncome: string;
+    leaseAgreement: string;
+    insuranceDocument: string;
+  };
+  preferences: {
+    preferredContactMethod: string;
+    notificationPreferences: string[];
+  };
+  amenities: {
+    parking: boolean;
+    storage: boolean;
+    pets: boolean;
+  };
 }
 
 export class UserController {
@@ -357,6 +392,57 @@ export class UserController {
       return res.json({ staff });
     } catch (error) {
       return res.status(500).json({ message: 'Error fetching staff', error });
+    }
+  }
+
+  static async submitOnboarding(req: Request, res: Response) {
+    try {
+      if (!req.user) throw new AppError(401, 'User not authenticated');
+      const userId = req.user.userId;
+      const data = req.body;
+
+      // Validate onboarding data
+      const onboardingData = plainToClass(OnboardingDataDto, data);
+      const errors = await validate(onboardingData);
+      if (errors.length > 0) {
+        return res.status(400).json({ message: 'Invalid onboarding data', errors });
+      }
+
+      // For each step, update onboarding step
+      const stepOrder = [
+        { id: 'personal-info', key: 'personalInfo' },
+        { id: 'property-info', key: 'propertyInfo' },
+        { id: 'documents', key: 'documents' },
+        { id: 'preferences', key: 'preferences' },
+        { id: 'amenities', key: 'amenities' },
+      ];
+      for (const step of stepOrder) {
+        if (data[step.key]) {
+          await TenantOnboardingService.updateOnboardingStep(userId, step.id, { [step.key]: data[step.key] });
+        }
+      }
+      res.status(200).json({ message: 'Onboarding submitted' });
+    } catch (error) {
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    }
+  }
+
+  static async getOnboardingStatus(req: Request, res: Response) {
+    try {
+      if (!req.user) throw new AppError(401, 'User not authenticated');
+      const userId = req.user.userId;
+      const status = await TenantOnboardingService.getOnboardingStatus(userId);
+      res.json(status);
+    } catch (error) {
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: 'Internal server error' });
+      }
     }
   }
 } 

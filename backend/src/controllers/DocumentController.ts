@@ -39,7 +39,7 @@ export class DocumentController {
         }
 
         // Verify unit belongs to property
-        if (unit.property.id !== propertyId) {
+        if (unit.building.id !== propertyId) {
           return res.status(400).json({ message: 'Unit does not belong to the specified property' });
         }
       }
@@ -62,7 +62,7 @@ export class DocumentController {
       document.type = type;
       document.title = title;
       document.description = description;
-      document.fileUrl = fileUrl;
+      document.url = fileUrl;
       document.metadata = metadata;
       document.status = status || DocumentStatus.ACTIVE;
       document.property = property;
@@ -110,7 +110,16 @@ export class DocumentController {
 
       // If user is a tenant, only show documents for their unit
       if (userRole === UserRole.TENANT) {
-        whereClause.unit = { currentTenant: { id: userId } };
+        const documents = await documentRepository
+          .createQueryBuilder('document')
+          .leftJoinAndSelect('document.unit', 'unit')
+          .leftJoinAndSelect('unit.currentTenant', 'tenant')
+          .where('tenant.id = :userId', { userId })
+          .andWhere(whereClause)
+          .orderBy('document.createdAt', 'DESC')
+          .getMany();
+
+        return res.json({ documents });
       }
 
       const documents = await documentRepository.find({
@@ -287,6 +296,26 @@ export class DocumentController {
       return res.json({ documents });
     } catch (error) {
       return res.status(500).json({ message: 'Error fetching all documents', error });
+    }
+  }
+
+  static async verifyDocument(req: Request, res: Response) {
+    try {
+      // Mock document verification logic
+      const isVerified = true; // Replace with actual verification logic
+      res.json({ isVerified });
+    } catch (error) {
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+
+  static async integrateCalendar(req: Request, res: Response) {
+    try {
+      // Mock calendar integration logic
+      const success = true; // Replace with actual integration logic
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ message: 'Internal server error' });
     }
   }
 } 

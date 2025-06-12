@@ -1,8 +1,18 @@
 import { Request, Response } from 'express';
-import { AppDataSource } from '../config/typeorm.config';
+import { AppDataSource } from '../data-source';
 import { User, UserRole } from '../models/User';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import { Building } from '../models/Building';
+import { BuildingAssignment, AssignmentType } from '../models/BuildingAssignment';
+import { TenantOnboardingService } from '../services/tenantOnboarding.service';
+import { hash, compare } from 'bcryptjs';
+import { sign } from 'jsonwebtoken';
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    userId: string;
+    role: UserRole;
+  };
+}
 
 const userRepository = AppDataSource.getRepository(User);
 
@@ -14,16 +24,26 @@ const excludePassword = (user: User) => {
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, password } = req.body;
+    const { firstName, lastName, email, password, buildingId } = req.body;
+    const buildingRepository = AppDataSource.getRepository(Building);
+    const buildingAssignmentRepository = AppDataSource.getRepository(BuildingAssignment);
+
+    // Check if user exists
     const existingUser = await userRepository.findOne({ where: { email } });
-    
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // Verify building exists if provided
+    if (buildingId) {
+      const building = await buildingRepository.findOne({ where: { id: buildingId } });
+      if (!building) {
+        return res.status(404).json({ message: 'Building not found' });
+      }
+    }
 
+    // Create user
+    const hashedPassword = await hash(password, 10);
     const user = userRepository.create({
       firstName,
       lastName,
@@ -33,13 +53,40 @@ export const signup = async (req: Request, res: Response) => {
     });
 
     await userRepository.save(user);
-    const token = jwt.sign(
+
+    // If buildingId is provided, create building assignment and start onboarding
+    if (buildingId) {
+      // Create building assignment
+      const assignment = buildingAssignmentRepository.create({
+        user: { id: user.id },
+        building: { id: buildingId },
+        type: AssignmentType.TENANT,
+        startDate: new Date(),
+        isActive: true
+      });
+      await buildingAssignmentRepository.save(assignment);
+
+      // Initialize onboarding
+      await TenantOnboardingService.initializeOnboarding(user.id, buildingId);
+    }
+
+    // Generate JWT
+    const token = sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET || 'your_jwt_secret_here',
       { expiresIn: '24h' }
     );
 
-    res.status(201).json({ user: excludePassword(user), token });
+    res.status(201).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role
+      },
+      token
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error creating user' });
   }
@@ -54,12 +101,12 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await compare(password, user.password);
     if (!isValidPassword) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
+    const token = sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET || 'your_jwt_secret_here',
       { expiresIn: '24h' }
@@ -71,9 +118,9 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const getMe = async (req: Request, res: Response) => {
+export const getMe = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user.userId;
     const user = await userRepository.findOne({ where: { id: userId } });
     
     if (!user) {

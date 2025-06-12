@@ -4,6 +4,8 @@ import { Unit } from './Unit';
 import { Document } from './Document';
 import { Event } from './Event';
 import { Lease } from './Lease';
+import { Package } from './Package';
+import { AmenityBooking } from './AmenityBooking';
 
 @Entity('properties')
 export class Property {
@@ -62,6 +64,12 @@ export class Property {
 
   @ManyToOne(() => User, user => user.managedProperties)
   manager: User;
+
+  @OneToMany(() => Package, pkg => pkg.property)
+  packages: Package[];
+
+  @OneToMany(() => AmenityBooking, booking => booking.property)
+  amenityBookings: AmenityBooking[];
 
   @OneToMany(() => Unit, unit => unit.property)
   units: Unit[];
